@@ -1,4 +1,5 @@
-import { motion } from "framer-motion";
+import { useEffect, useRef } from "react";
+import { gsap } from "gsap";
 import { Lock, Trophy, Star, Flame, Mountain, Sparkles } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -25,34 +26,41 @@ const WORLD_REGIONS = [
 
 const MissionMap = ({ missions }: MissionMapProps) => {
   const navigate = useNavigate();
+  const mapRef = useRef<HTMLDivElement>(null);
+  const pathRef = useRef<SVGPathElement>(null);
+  const nodesRef = useRef<(HTMLDivElement | null)[]>([]);
 
-  // Posiciones estilo mapa de Chile (norte a sur, con curvas) - Camino fluido
-  const getNodePosition = (index: number) => {
+  // Genera puntos del camino con curvas suaves estilo carretera
+  const generatePathPoints = () => {
     const totalMissions = missions.length;
+    const points: { x: number; y: number }[] = [];
     
-    // Espaciado mínimo entre misiones (en unidades de viewport)
-    const minSpacing = 15; // Mínimo 15% de separación vertical
-    const totalHeight = 70; // Altura total disponible (del 15% al 85%)
+    const startY = 10;
+    const endY = 90;
+    const minSpacing = Math.min(15, (endY - startY) / Math.max(totalMissions - 1, 1));
     
-    // Calcular espaciado dinámico según número de misiones
-    const idealSpacing = Math.max(minSpacing, totalHeight / Math.max(totalMissions - 1, 1));
+    for (let i = 0; i < totalMissions; i++) {
+      const progress = i / Math.max(totalMissions - 1, 1);
+      const y = startY + (progress * (endY - startY));
+      
+      // Movimiento sinusoidal para simular carretera serpenteante
+      const waveOffset = Math.sin(progress * Math.PI * 2.2) * 18;
+      const x = 50 + waveOffset + (i % 3) * 2;
+      
+      points.push({ 
+        x: Math.max(25, Math.min(75, x)), 
+        y: Math.max(startY, Math.min(endY, y))
+      });
+    }
     
-    // Posición Y: distribución uniforme con espaciado garantizado
-    const startY = 15;
-    const y = startY + (index * idealSpacing);
-    
-    // Posición X: camino serpenteante suave
-    const progress = index / Math.max(totalMissions - 1, 1);
-    const waveAmplitude = 20; // Amplitud del serpenteo
-    const waveFrequency = 1.8; // Frecuencia más suave para evitar solapamientos
-    const centerX = 50;
-    
-    // Añadir variación única por índice para evitar coincidencias exactas
-    const uniqueOffset = (index % 3) * 3; // Pequeña variación adicional
-    const offsetX = Math.sin(progress * Math.PI * waveFrequency + index * 0.2) * waveAmplitude + uniqueOffset;
-    const x = Math.max(20, Math.min(80, centerX + offsetX)); // Mantener dentro de límites
-    
-    return { x, y };
+    return points;
+  };
+
+  const pathPoints = generatePathPoints();
+
+  // Obtener posición exacta en la línea para cada misión
+  const getNodePosition = (index: number) => {
+    return pathPoints[index] || { x: 50, y: 50 };
   };
   
   // Determinar región según índice
@@ -61,36 +69,111 @@ const MissionMap = ({ missions }: MissionMapProps) => {
     return WORLD_REGIONS[Math.min(regionIndex, WORLD_REGIONS.length - 1)];
   };
 
-  // Draw SVG path connecting all nodes
+  // Generar SVG path con curvas Bezier suaves para apariencia de carretera
   const generatePath = () => {
-    const points = missions.map((_, i) => {
-      const pos = getNodePosition(i);
-      return `${pos.x},${pos.y}`;
-    });
+    if (pathPoints.length === 0) return '';
     
-    let path = `M ${points[0]}`;
-    for (let i = 1; i < points.length; i++) {
-      const prev = points[i - 1].split(',').map(Number);
-      const curr = points[i].split(',').map(Number);
-      const midX = (prev[0] + curr[0]) / 2;
-      path += ` Q ${midX},${prev[1]} ${curr[0]},${curr[1]}`;
+    let path = `M ${pathPoints[0].x},${pathPoints[0].y}`;
+    
+    for (let i = 1; i < pathPoints.length; i++) {
+      const prev = pathPoints[i - 1];
+      const curr = pathPoints[i];
+      
+      // Puntos de control para curva Bezier suave
+      const cp1x = prev.x + (curr.x - prev.x) * 0.5;
+      const cp1y = prev.y + (curr.y - prev.y) * 0.3;
+      const cp2x = prev.x + (curr.x - prev.x) * 0.5;
+      const cp2y = prev.y + (curr.y - prev.y) * 0.7;
+      
+      path += ` C ${cp1x},${cp1y} ${cp2x},${cp2y} ${curr.x},${curr.y}`;
     }
+    
     return path;
   };
+
+  // Animaciones GSAP
+  useEffect(() => {
+    if (!mapRef.current || !pathRef.current) return;
+
+    const ctx = gsap.context(() => {
+      // Animar HUD superior
+      gsap.from(".hud-top", {
+        y: -100,
+        duration: 0.8,
+        ease: "power3.out"
+      });
+
+      // Animar path con drawSVG
+      gsap.from(pathRef.current, {
+        strokeDashoffset: 1000,
+        strokeDasharray: 1000,
+        duration: 2.5,
+        ease: "power2.inOut"
+      });
+
+      // Animar nodos secuencialmente
+      nodesRef.current.forEach((node, index) => {
+        if (node) {
+          gsap.from(node, {
+            scale: 0,
+            opacity: 0,
+            duration: 0.5,
+            delay: index * 0.12,
+            ease: "back.out(1.7)"
+          });
+        }
+      });
+
+      // Animar tooltips
+      gsap.from(".mission-tooltip", {
+        opacity: 0,
+        y: -10,
+        scale: 0.8,
+        duration: 0.4,
+        stagger: 0.12,
+        delay: missions.length * 0.12 + 0.3,
+        ease: "back.out(1.7)"
+      });
+
+      // Animar HUD inferior
+      gsap.from(".hud-bottom-left", {
+        x: -100,
+        opacity: 0,
+        duration: 0.6,
+        delay: 0.5,
+        ease: "power3.out"
+      });
+
+      gsap.from(".hud-bottom-right", {
+        x: 100,
+        opacity: 0,
+        duration: 0.6,
+        delay: 0.6,
+        ease: "power3.out"
+      });
+
+      // Animar estrellas de progreso
+      gsap.from(".progress-star", {
+        scale: 0,
+        rotation: -180,
+        duration: 0.4,
+        stagger: 0.1,
+        delay: 0.8,
+        ease: "back.out(1.7)"
+      });
+    }, mapRef);
+
+    return () => ctx.revert();
+  }, [missions.length]);
 
   const completedCount = missions.filter(m => m.status === 'completed').length;
   const nextAvailableIndex = missions.findIndex(m => m.status === 'pending');
   const currentRegion = nextAvailableIndex >= 0 ? getRegion(nextAvailableIndex) : WORLD_REGIONS[0];
 
   return (
-    <div className="relative w-full min-h-[1000px] bg-gradient-to-b from-background via-primary/5 to-secondary/10 rounded-2xl overflow-hidden border-8 border-primary/40 shadow-2xl">
+    <div ref={mapRef} className="relative w-full min-h-[1000px] bg-gradient-to-b from-background via-primary/5 to-secondary/10 rounded-2xl overflow-hidden border-8 border-primary/40 shadow-2xl">
       {/* HUD Superior - Estilo NES */}
-      <motion.div 
-        className="absolute top-0 left-0 right-0 z-30 bg-gradient-to-r from-primary to-secondary p-4 border-b-8 border-primary/60 shadow-xl"
-        initial={{ y: -100 }}
-        animate={{ y: 0 }}
-        transition={{ type: "spring", stiffness: 100 }}
-      >
+      <div className="hud-top absolute top-0 left-0 right-0 z-30 bg-gradient-to-r from-primary to-secondary p-4 border-b-8 border-primary/60 shadow-xl">
         <div className="flex items-center justify-between max-w-6xl mx-auto">
           {/* Título del Mundo */}
           <div className="flex items-center gap-3">
@@ -123,7 +206,7 @@ const MissionMap = ({ missions }: MissionMapProps) => {
             </div>
           </div>
         </div>
-      </motion.div>
+      </div>
 
       {/* Fondo decorativo - Mapa pixelado */}
       <div className="absolute inset-0 opacity-10">
@@ -135,24 +218,19 @@ const MissionMap = ({ missions }: MissionMapProps) => {
 
       {/* Elementos decorativos de región */}
       <div className="absolute inset-0 pointer-events-none">
-        {/* Norte - Sol/Desierto */}
         <div className="absolute top-20 left-10 text-6xl opacity-30 animate-pulse" style={{ animationDuration: '4s' }}>☀️</div>
-        {/* Centro - Árbol */}
         <div className="absolute top-40 right-20 text-5xl opacity-30 animate-pulse" style={{ animationDuration: '5s' }}>🌲</div>
-        {/* Sur - Montaña */}
         <div className="absolute bottom-40 left-20 text-6xl opacity-30 animate-pulse" style={{ animationDuration: '6s' }}>⛰️</div>
-        {/* Patagonia - Nieve */}
         <div className="absolute bottom-20 right-10 text-5xl opacity-30 animate-pulse" style={{ animationDuration: '3s' }}>❄️</div>
       </div>
 
-      {/* SVG Path - Camino del Guerrero */}
+      {/* SVG Path - Carretera del Guerrero */}
       <svg 
         className="absolute inset-0 w-full h-full mt-20"
         viewBox="0 0 100 100"
         preserveAspectRatio="none"
       >
         <defs>
-          {/* Gradiente para el camino completado */}
           <linearGradient id="pathGradient" x1="0%" y1="0%" x2="0%" y2="100%">
             <stop offset="0%" stopColor="hsl(var(--success))" stopOpacity="0.8" />
             <stop offset={`${(completedCount / missions.length) * 100}%`} stopColor="hsl(var(--success))" stopOpacity="0.8" />
@@ -161,8 +239,8 @@ const MissionMap = ({ missions }: MissionMapProps) => {
           </linearGradient>
         </defs>
         
-        {/* Sombra del camino - más gruesa */}
-        <motion.path
+        {/* Sombra del camino */}
+        <path
           d={generatePath()}
           stroke="hsl(var(--foreground))"
           strokeWidth="6"
@@ -170,13 +248,10 @@ const MissionMap = ({ missions }: MissionMapProps) => {
           opacity="0.15"
           strokeLinecap="round"
           strokeLinejoin="round"
-          initial={{ pathLength: 0 }}
-          animate={{ pathLength: 1 }}
-          transition={{ duration: 2.5, ease: "easeInOut" }}
         />
         
-        {/* Camino base - ancho */}
-        <motion.path
+        {/* Camino base */}
+        <path
           d={generatePath()}
           stroke="hsl(var(--muted))"
           strokeWidth="5"
@@ -184,26 +259,25 @@ const MissionMap = ({ missions }: MissionMapProps) => {
           strokeLinecap="round"
           strokeLinejoin="round"
           opacity="0.4"
-          initial={{ pathLength: 0 }}
-          animate={{ pathLength: 1 }}
-          transition={{ duration: 2.5, ease: "easeInOut" }}
         />
         
-        {/* Camino principal - con gradiente de progreso */}
-        <motion.path
+        {/* Camino principal con animación */}
+        <path
+          ref={pathRef}
           d={generatePath()}
           stroke="url(#pathGradient)"
           strokeWidth="4"
           fill="none"
           strokeLinecap="round"
           strokeLinejoin="round"
-          initial={{ pathLength: 0 }}
-          animate={{ pathLength: 1 }}
-          transition={{ duration: 2.5, ease: "easeInOut" }}
+          style={{
+            strokeDasharray: 1000,
+            strokeDashoffset: 1000
+          }}
         />
         
-        {/* Línea punteada central - guía */}
-        <motion.path
+        {/* Línea punteada central */}
+        <path
           d={generatePath()}
           stroke="hsl(var(--background))"
           strokeWidth="1.5"
@@ -211,9 +285,6 @@ const MissionMap = ({ missions }: MissionMapProps) => {
           strokeDasharray="8,12"
           opacity="0.6"
           strokeLinecap="round"
-          initial={{ pathLength: 0 }}
-          animate={{ pathLength: 1 }}
-          transition={{ duration: 2.5, ease: "easeInOut", delay: 0.5 }}
         />
       </svg>
 
@@ -228,29 +299,45 @@ const MissionMap = ({ missions }: MissionMapProps) => {
           const RegionIcon = region.icon;
 
           return (
-            <motion.div
+            <div
               key={mission.id}
+              ref={el => nodesRef.current[index] = el}
               className="absolute"
               style={{
                 left: `${position.x}%`,
                 top: `${position.y}%`,
                 transform: 'translate(-50%, -50%)',
               }}
-              initial={{ scale: 0, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ delay: index * 0.15, type: "spring", stiffness: 200 }}
             >
-              <motion.button
+              <button
                 onClick={() => isAvailable && navigate(`/exercise/${mission.id}`)}
                 disabled={isLocked}
                 className={`
-                  relative group
+                  relative group transition-transform duration-200
                   ${isCompleted && 'cursor-default'}
-                  ${isAvailable && 'cursor-pointer'}
+                  ${isAvailable && 'cursor-pointer hover:scale-110'}
                   ${isLocked && 'cursor-not-allowed'}
                 `}
-                whileHover={isAvailable ? { scale: 1.15, rotate: [0, -5, 5, 0] } : {}}
-                whileTap={isAvailable ? { scale: 0.9 } : {}}
+                onMouseEnter={(e) => {
+                  if (isAvailable) {
+                    gsap.to(e.currentTarget, {
+                      scale: 1.15,
+                      rotation: 5,
+                      duration: 0.3,
+                      ease: "back.out(1.7)"
+                    });
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (isAvailable) {
+                    gsap.to(e.currentTarget, {
+                      scale: 1,
+                      rotation: 0,
+                      duration: 0.3,
+                      ease: "power2.out"
+                    });
+                  }
+                }}
               >
                 {/* Base del nodo - Estandarte/Tótem estilo pixel */}
                 <div className={`
@@ -303,79 +390,43 @@ const MissionMap = ({ missions }: MissionMapProps) => {
                     {/* Anillos de brillo animados para misión disponible */}
                     {isAvailable && (
                       <>
-                        <motion.div
-                          className="absolute inset-0 rounded-lg border-4 border-white"
-                          animate={{ 
-                            scale: [1, 1.4, 1],
-                            opacity: [0.9, 0, 0.9]
-                          }}
-                          transition={{ 
-                            duration: 2,
-                            repeat: Infinity,
-                            ease: "easeInOut"
-                          }}
+                        <div
+                          className="absolute inset-0 rounded-lg border-4 border-white animate-ping"
+                          style={{ animationDuration: '2s' }}
                         />
-                        <motion.div
-                          className="absolute inset-0 rounded-lg border-2 border-accent"
-                          animate={{ 
-                            scale: [1, 1.6, 1],
-                            opacity: [0.7, 0, 0.7]
-                          }}
-                          transition={{ 
-                            duration: 2,
-                            repeat: Infinity,
-                            ease: "easeInOut",
-                            delay: 0.3
-                          }}
+                        <div
+                          className="absolute inset-0 rounded-lg border-2 border-accent animate-ping"
+                          style={{ animationDuration: '2s', animationDelay: '0.3s' }}
                         />
                       </>
                     )}
 
                     {/* Estrella flotante */}
                     {isAvailable && (
-                      <motion.div
-                        className="absolute -top-4 -right-4"
-                        animate={{ 
-                          y: [-5, 5, -5],
-                          rotate: [0, 360],
-                        }}
-                        transition={{ 
-                          duration: 3,
-                          repeat: Infinity,
-                          ease: "easeInOut"
-                        }}
-                      >
+                      <div className="absolute -top-4 -right-4 animate-bounce">
                         <Star className="w-6 h-6 text-accent fill-accent drop-shadow-lg" />
-                      </motion.div>
+                      </div>
                     )}
                   </div>
 
                   {/* Gemas - Estilo moneda retro */}
                   {!isLocked && (
-                    <motion.div 
+                    <div 
                       className={`
                         absolute -bottom-2 w-12 h-12 rounded-full
                         flex items-center justify-center text-2xl font-black
                         border-4 shadow-xl z-20
                         ${isCompleted 
                           ? 'bg-gradient-to-br from-amber-400 to-amber-600 border-amber-700' 
-                          : 'bg-gradient-to-br from-yellow-300 to-yellow-500 border-yellow-600'}
+                          : 'bg-gradient-to-br from-yellow-300 to-yellow-500 border-yellow-600 animate-bounce'}
                       `}
-                      animate={!isCompleted ? { 
-                        rotate: [0, 15, -15, 0],
-                        y: [0, -5, 0]
-                      } : {}}
-                      transition={{ 
-                        duration: 2,
-                        repeat: Infinity,
-                        ease: "easeInOut"
-                      }}
                       style={{
-                        boxShadow: '0 4px 0 rgba(0,0,0,0.3), inset 0 2px 0 rgba(255,255,255,0.3)'
+                        boxShadow: '0 4px 0 rgba(0,0,0,0.3), inset 0 2px 0 rgba(255,255,255,0.3)',
+                        animationDuration: '2s'
                       }}
                     >
                       💎
-                    </motion.div>
+                    </div>
                   )}
                 </div>
 
@@ -387,22 +438,15 @@ const MissionMap = ({ missions }: MissionMapProps) => {
                   ${isAvailable && 'bg-primary/40'}
                   ${isLocked && 'bg-muted/15'}
                 `} />
-              </motion.button>
+              </button>
 
               {/* Tooltip - Cuadro de diálogo retro */}
               {isAvailable && (
-                <motion.div
-                  className="absolute top-full mt-6 left-1/2 -translate-x-1/2 
+                <div
+                  className="mission-tooltip absolute top-full mt-6 left-1/2 -translate-x-1/2 
                     bg-card/95 backdrop-blur-sm border-4 border-foreground/30 rounded-xl
                     px-4 py-3 text-sm font-bold text-foreground whitespace-nowrap
                     shadow-2xl max-w-[220px] text-center z-20"
-                  initial={{ opacity: 0, y: -10, scale: 0.8 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  transition={{ 
-                    delay: index * 0.15 + 0.4,
-                    type: "spring",
-                    stiffness: 200
-                  }}
                   style={{
                     fontFamily: 'monospace',
                     boxShadow: '0 6px 0 rgba(0,0,0,0.2)'
@@ -418,22 +462,19 @@ const MissionMap = ({ missions }: MissionMapProps) => {
                     {mission.title}
                   </div>
                   <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-primary/10 to-transparent pointer-events-none" />
-                </motion.div>
+                </div>
               )}
-            </motion.div>
+            </div>
           );
         })}
       </div>
 
       {/* Inventario del Guerrero - Esquina inferior derecha */}
-      <motion.div 
-        className="absolute bottom-6 right-6 
+      <div 
+        className="hud-bottom-right absolute bottom-6 right-6 
           bg-gradient-to-br from-card/95 to-card/80 backdrop-blur-md 
           border-4 border-primary/40 rounded-2xl 
           px-5 py-4 shadow-2xl"
-        initial={{ x: 100, opacity: 0 }}
-        animate={{ x: 0, opacity: 1 }}
-        transition={{ delay: 0.6, type: "spring" }}
         style={{
           boxShadow: '0 8px 0 rgba(0,0,0,0.2)'
         }}
@@ -452,17 +493,14 @@ const MissionMap = ({ missions }: MissionMapProps) => {
             🦅
           </div>
         </div>
-      </motion.div>
+      </div>
 
       {/* Progress HUD - Estilo retro inferior izquierda */}
-      <motion.div 
-        className="absolute bottom-6 left-6 
+      <div 
+        className="hud-bottom-left absolute bottom-6 left-6 
           bg-gradient-to-br from-card/95 to-card/80 backdrop-blur-md 
           border-4 border-primary/40 rounded-2xl 
           px-6 py-4 flex items-center gap-4 shadow-2xl"
-        initial={{ x: -100, opacity: 0 }}
-        animate={{ x: 0, opacity: 1 }}
-        transition={{ delay: 0.5, type: "spring" }}
         style={{
           boxShadow: '0 8px 0 rgba(0,0,0,0.2)'
         }}
@@ -486,17 +524,12 @@ const MissionMap = ({ missions }: MissionMapProps) => {
         
         <div className="flex gap-1">
           {[...Array(Math.min(3, completedCount))].map((_, i) => (
-            <motion.div
-              key={i}
-              initial={{ scale: 0, rotate: -180 }}
-              animate={{ scale: 1, rotate: 0 }}
-              transition={{ delay: 0.8 + i * 0.1, type: "spring" }}
-            >
+            <div key={i} className="progress-star">
               <Star className="w-5 h-5 text-accent fill-accent drop-shadow" />
-            </motion.div>
+            </div>
           ))}
         </div>
-      </motion.div>
+      </div>
     </div>
   );
 };

@@ -3,7 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { LogOut, CheckCircle2, XCircle, Clock } from "lucide-react";
+import { LogOut, CheckCircle2, XCircle, Clock, Eye } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 
 interface PatientData {
   id: string;
@@ -15,12 +19,23 @@ interface PatientData {
   today_mission_status: "completed" | "in_progress" | "pending" | "none";
 }
 
+interface MissionHistory {
+  id: string;
+  title: string;
+  completed_at: string | null;
+  gems_reward: number;
+  status: string;
+}
+
 const TherapistDashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [patients, setPatients] = useState<PatientData[]>([]);
   const [isTherapist, setIsTherapist] = useState(false);
+  const [selectedPatient, setSelectedPatient] = useState<PatientData | null>(null);
+  const [missionHistory, setMissionHistory] = useState<MissionHistory[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   useEffect(() => {
     checkAuthAndLoadPatients();
@@ -117,6 +132,29 @@ const TherapistDashboard = () => {
     navigate("/");
   };
 
+  const handleViewPatient = async (patient: PatientData) => {
+    setSelectedPatient(patient);
+    setLoadingHistory(true);
+    
+    const { data, error } = await supabase
+      .from("missions")
+      .select("*")
+      .eq("user_id", patient.id)
+      .order("completed_at", { ascending: false });
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: "No se pudo cargar el historial del paciente",
+        variant: "destructive",
+      });
+    } else {
+      setMissionHistory(data || []);
+    }
+    
+    setLoadingHistory(false);
+  };
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -133,7 +171,122 @@ const TherapistDashboard = () => {
     tigre: "🐯",
   };
 
+  const getWeeklyProgress = () => {
+    if (!selectedPatient) return 0;
+    return Math.min((selectedPatient.missions_completed / 7) * 100, 100);
+  };
+
   return (
+    <>
+      {/* Dialog for Patient Details */}
+      <Dialog open={!!selectedPatient} onOpenChange={() => setSelectedPatient(null)}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-3">
+              <span className="text-3xl">
+                {selectedPatient && (animalEmojis[selectedPatient.animal_warrior] || "👤")}
+              </span>
+              <div>
+                <div>{selectedPatient?.full_name}</div>
+                <div className="text-sm font-normal text-muted-foreground capitalize">
+                  {selectedPatient?.animal_warrior}
+                </div>
+              </div>
+            </DialogTitle>
+          </DialogHeader>
+
+          {selectedPatient && (
+            <div className="space-y-6">
+              {/* Progress Overview */}
+              <div className="grid grid-cols-3 gap-4">
+                <Card>
+                  <CardContent className="pt-6 text-center">
+                    <div className="text-3xl font-bold text-primary">{selectedPatient.total_gems}</div>
+                    <div className="text-sm text-muted-foreground">Gemas Totales</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-6 text-center">
+                    <div className="text-3xl font-bold text-secondary">{selectedPatient.missions_completed}</div>
+                    <div className="text-sm text-muted-foreground">Misiones Completadas</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-6 text-center">
+                    <div className="text-3xl font-bold text-accent">{selectedPatient.current_streak}</div>
+                    <div className="text-sm text-muted-foreground">Racha Actual</div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Weekly Progress */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Progreso Semanal</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Progress value={getWeeklyProgress()} className="h-3" />
+                  <p className="text-sm text-muted-foreground mt-2">
+                    {selectedPatient.missions_completed} de 7 misiones esta semana
+                  </p>
+                </CardContent>
+              </Card>
+
+              {/* Mission History */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Historial de Misiones</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {loadingHistory ? (
+                    <p className="text-center py-4 text-muted-foreground">Cargando historial...</p>
+                  ) : missionHistory.length > 0 ? (
+                    <div className="space-y-3 max-h-96 overflow-y-auto">
+                      {missionHistory.map((mission) => (
+                        <div
+                          key={mission.id}
+                          className="flex items-center justify-between p-3 border rounded-lg"
+                        >
+                          <div className="flex-1">
+                            <div className="font-medium">{mission.title}</div>
+                            <div className="text-sm text-muted-foreground">
+                              {mission.completed_at
+                                ? new Date(mission.completed_at).toLocaleDateString('es-ES', {
+                                    day: 'numeric',
+                                    month: 'long',
+                                    year: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                  })
+                                : 'Pendiente'}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <Badge variant={mission.status === 'completed' ? 'default' : 'outline'}>
+                              {mission.status === 'completed' ? 'Completada' : 'Pendiente'}
+                            </Badge>
+                            {mission.status === 'completed' && (
+                              <span className="text-sm font-semibold text-primary">
+                                +{mission.gems_reward} 💎
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-center py-4 text-muted-foreground">
+                      No hay misiones registradas aún
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Main Dashboard */}
     <div className="min-h-screen bg-gradient-to-br from-background via-primary/5 to-accent/5">
       {/* Header */}
       <header className="border-b bg-card/50 backdrop-blur-sm">
@@ -193,29 +346,41 @@ const TherapistDashboard = () => {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">Misión de hoy:</span>
-                  {patient.today_mission_status === "completed" ? (
-                    <span className="flex items-center gap-1 rounded-full bg-success/10 px-3 py-1 text-xs font-semibold text-success">
-                      <CheckCircle2 className="h-3 w-3" />
-                      Completada
-                    </span>
-                  ) : patient.today_mission_status === "in_progress" ? (
-                    <span className="flex items-center gap-1 rounded-full bg-secondary/10 px-3 py-1 text-xs font-semibold text-secondary">
-                      <Clock className="h-3 w-3" />
-                      En progreso
-                    </span>
-                  ) : patient.today_mission_status === "pending" ? (
-                    <span className="flex items-center gap-1 rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground">
-                      <Clock className="h-3 w-3" />
-                      Pendiente
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-1 rounded-full bg-destructive/10 px-3 py-1 text-xs font-semibold text-destructive">
-                      <XCircle className="h-3 w-3" />
-                      Sin misión
-                    </span>
-                  )}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">Misión de hoy:</span>
+                    {patient.today_mission_status === "completed" ? (
+                      <span className="flex items-center gap-1 rounded-full bg-success/10 px-3 py-1 text-xs font-semibold text-success">
+                        <CheckCircle2 className="h-3 w-3" />
+                        Completada
+                      </span>
+                    ) : patient.today_mission_status === "in_progress" ? (
+                      <span className="flex items-center gap-1 rounded-full bg-secondary/10 px-3 py-1 text-xs font-semibold text-secondary">
+                        <Clock className="h-3 w-3" />
+                        En progreso
+                      </span>
+                    ) : patient.today_mission_status === "pending" ? (
+                      <span className="flex items-center gap-1 rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground">
+                        <Clock className="h-3 w-3" />
+                        Pendiente
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1 rounded-full bg-destructive/10 px-3 py-1 text-xs font-semibold text-destructive">
+                        <XCircle className="h-3 w-3" />
+                        Sin misión
+                      </span>
+                    )}
+                  </div>
+                  
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="w-full gap-2"
+                    onClick={() => handleViewPatient(patient)}
+                  >
+                    <Eye className="h-4 w-4" />
+                    Ver Detalle
+                  </Button>
                 </div>
               </div>
             ))}
@@ -223,6 +388,7 @@ const TherapistDashboard = () => {
         )}
       </div>
     </div>
+    </>
   );
 };
 

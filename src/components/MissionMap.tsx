@@ -193,14 +193,12 @@ const MissionMap = ({ missions }: MissionMapProps) => {
           
           {/* Stats - Estilo retro */}
           <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2 bg-background/20 px-4 py-2 rounded-lg border-2 border-primary-foreground/30">
-              <span className="text-sm font-black text-primary-foreground uppercase" style={{ fontFamily: 'monospace' }}>Vidas</span>
-              <span className="text-2xl">❤️</span>
-              <span className="text-xl font-black text-primary-foreground" style={{ fontFamily: 'monospace' }}>× 03</span>
-            </div>
-            <div className="flex items-center gap-2 bg-background/20 px-4 py-2 rounded-lg border-2 border-primary-foreground/30">
-              <span className="text-2xl">💎</span>
-              <span className="text-xl font-black text-primary-foreground" style={{ fontFamily: 'monospace' }}>
+            <div className="flex items-center gap-2 bg-gradient-to-br from-red-500/30 to-red-600/30 px-5 py-2 rounded-lg border-3 border-red-500/50 backdrop-blur-sm shadow-lg">
+              <span className="text-2xl drop-shadow-lg">💎</span>
+              <span className="text-2xl font-black text-primary-foreground drop-shadow-lg" style={{ 
+                fontFamily: 'monospace',
+                textShadow: '2px 2px 0 rgba(0,0,0,0.3)'
+              }}>
                 {missions.reduce((sum, m) => sum + (m.status === 'completed' ? m.gems_reward : 0), 0)}
               </span>
             </div>

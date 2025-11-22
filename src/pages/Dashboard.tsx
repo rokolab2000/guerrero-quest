@@ -82,46 +82,60 @@ const Dashboard = () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      // Get random exercise
+      // Get random exercises
       const { data: exercises } = await supabase
         .from("exercises")
         .select("*");
 
       if (!exercises || exercises.length === 0) return;
 
-      const randomExercise = exercises[Math.floor(Math.random() * exercises.length)];
-
-      // Generate mission with template
+      // Generate mission templates
       const missionTemplates = [
         {
-          title: `🎯 Conquista: ${randomExercise.name}`,
-          description: `Tu ${profile?.animal_warrior} necesita tu ayuda para completar esta misión: ${randomExercise.description}. ¡Demuestra tu fuerza interior!`,
+          title: `🎯 Conquista`,
+          description: `Tu ${profile?.animal_warrior} necesita tu ayuda para completar esta misión. ¡Demuestra tu fuerza interior!`,
         },
         {
-          title: `⚔️ Desafío: ${randomExercise.name}`,
-          description: `El camino del guerrero requiere dedicación. Hoy tu misión es: ${randomExercise.description}. ¡Tu ${profile?.animal_warrior} confía en ti!`,
+          title: `⚔️ Desafío`,
+          description: `El camino del guerrero requiere dedicación. ¡Tu ${profile?.animal_warrior} confía en ti!`,
         },
         {
-          title: `🌟 Prueba de Poder: ${randomExercise.name}`,
-          description: `Una nueva prueba te espera. ${randomExercise.description}. Cada repetición te acerca a tu meta.`,
+          title: `🌟 Prueba de Poder`,
+          description: `Una nueva prueba te espera. Cada repetición te acerca a tu meta.`,
+        },
+        {
+          title: `🔥 Misión Ardiente`,
+          description: `El fuego interior te guía. ¡Completa este desafío!`,
+        },
+        {
+          title: `⛰️ Cima del Guerrero`,
+          description: `Alcanza la cima de tus capacidades. ¡Tu momento es ahora!`,
         },
       ];
 
-      const template = missionTemplates[Math.floor(Math.random() * missionTemplates.length)];
+      // Generate 5 missions
+      const missionsToInsert = [];
+      for (let i = 0; i < 5; i++) {
+        const randomExercise = exercises[Math.floor(Math.random() * exercises.length)];
+        const template = missionTemplates[i];
+        
+        missionsToInsert.push({
+          user_id: session.user.id,
+          exercise_id: randomExercise.id,
+          title: `${template.title}: ${randomExercise.name}`,
+          description: template.description,
+          gems_reward: 10 + Math.floor(Math.random() * 10),
+          status: 'pending',
+        });
+      }
 
-      const { error } = await supabase.from("missions").insert({
-        user_id: session.user.id,
-        exercise_id: randomExercise.id,
-        title: template.title,
-        description: template.description,
-        gems_reward: 10 + Math.floor(Math.random() * 10),
-      });
+      const { error } = await supabase.from("missions").insert(missionsToInsert);
 
       if (error) throw error;
 
       toast({
-        title: "¡Nueva Misión!",
-        description: "Tu misión del día ha sido generada",
+        title: "¡Camino Generado!",
+        description: "Se han generado 5 misiones. ¡Completa la primera para desbloquear las siguientes!",
       });
 
       loadDashboard();
@@ -219,19 +233,19 @@ const Dashboard = () => {
             disabled={generatingMission}
             className="bg-primary hover:bg-primary/90"
           >
-            {generatingMission ? "Generando..." : "Nueva Misión"}
+            {generatingMission ? "Generando Camino..." : "Generar Camino del Guerrero"}
           </Button>
         </div>
 
         {missions.length === 0 ? (
           <div className="rounded-3xl border-2 border-dashed border-border bg-muted/20 p-12 text-center">
             <div className="mb-4 text-6xl">🎯</div>
-            <h3 className="mb-2 text-xl font-bold">No tienes misiones hoy</h3>
+            <h3 className="mb-2 text-xl font-bold">No tienes misiones</h3>
             <p className="mb-4 text-muted-foreground">
-              Genera tu primera misión para comenzar tu entrenamiento
+              Genera tu camino del guerrero con 5 niveles para comenzar tu entrenamiento
             </p>
             <Button onClick={generateMission} disabled={generatingMission}>
-              Generar Misión
+              Generar Camino del Guerrero
             </Button>
           </div>
         ) : (

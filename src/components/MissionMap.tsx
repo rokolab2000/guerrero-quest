@@ -32,13 +32,16 @@ const MissionMap = ({ missions }: MissionMapProps) => {
     const totalMissions = missions.length;
     const progress = index / Math.max(totalMissions - 1, 1);
     
-    // Camino serpenteante de norte a sur
-    const baseY = 15 + (progress * 70); // De 15% a 85% verticalmente
-    const waveAmplitude = 12; // Amplitud de la onda horizontal
-    const waveFrequency = 3; // Frecuencia de la serpiente
-    const centerX = 45; // Centro del camino
+    // Camino serpenteante de norte a sur con más separación
+    const minY = 12; // Margen superior
+    const maxY = 82; // Margen inferior
+    const baseY = minY + (progress * (maxY - minY)); // Distribución vertical amplia
     
-    // Calcula posición X con movimiento serpenteante
+    const waveAmplitude = 18; // Mayor amplitud horizontal
+    const waveFrequency = 2.5; // Frecuencia más suave
+    const centerX = 50; // Centro del camino
+    
+    // Calcula posición X con movimiento serpenteante suave
     const offsetX = Math.sin(progress * Math.PI * waveFrequency) * waveAmplitude;
     const x = centerX + offsetX;
     
@@ -73,7 +76,7 @@ const MissionMap = ({ missions }: MissionMapProps) => {
   const currentRegion = nextAvailableIndex >= 0 ? getRegion(nextAvailableIndex) : WORLD_REGIONS[0];
 
   return (
-    <div className="relative w-full min-h-[800px] bg-gradient-to-b from-background via-primary/5 to-secondary/10 rounded-2xl overflow-hidden border-8 border-primary/40 shadow-2xl">
+    <div className="relative w-full min-h-[1000px] bg-gradient-to-b from-background via-primary/5 to-secondary/10 rounded-2xl overflow-hidden border-8 border-primary/40 shadow-2xl">
       {/* HUD Superior - Estilo NES */}
       <motion.div 
         className="absolute top-0 left-0 right-0 z-30 bg-gradient-to-r from-primary to-secondary p-4 border-b-8 border-primary/60 shadow-xl"

@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Onboarding from "./pages/Onboarding";
+import TherapistOnboarding from "./pages/TherapistOnboarding";
 import Dashboard from "./pages/Dashboard";
 import TherapistDashboard from "./pages/TherapistDashboard";
 import Exercise from "./pages/Exercise";
@@ -23,6 +24,7 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/onboarding" element={<Onboarding />} />
+          <Route path="/therapist-onboarding" element={<TherapistOnboarding />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/therapist" element={<TherapistDashboard />} />
           <Route path="/exercise/:missionId" element={<Exercise />} />

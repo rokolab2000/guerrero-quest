@@ -32,11 +32,22 @@ const Auth = () => {
         const isTherapist = roles?.some(r => r.role === "therapist");
 
         if (isTherapist) {
-          navigate("/therapist");
+          // Check if therapist completed onboarding
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("full_name")
+            .eq("id", session.user.id)
+            .single();
+
+          if (profile?.full_name) {
+            navigate("/therapist");
+          } else {
+            navigate("/therapist-onboarding");
+          }
           return;
         }
 
-        // Check if user has completed onboarding
+        // Check if patient has completed onboarding
         const { data: profile } = await supabase
           .from("profiles")
           .select("animal_warrior")
@@ -76,7 +87,18 @@ const Auth = () => {
           const isUserTherapist = roles?.some(r => r.role === "therapist");
 
           if (isUserTherapist) {
-            navigate("/therapist");
+            // Check if therapist completed onboarding
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("full_name")
+              .eq("id", data.session.user.id)
+              .single();
+
+            if (profile?.full_name) {
+              navigate("/therapist");
+            } else {
+              navigate("/therapist-onboarding");
+            }
             return;
           }
 
@@ -132,10 +154,10 @@ const Auth = () => {
 
           toast({
             title: "¡Cuenta de terapeuta creada!",
-            description: "Iniciando sesión...",
+            description: "Completa tu perfil para continuar",
           });
 
-          navigate("/therapist");
+          navigate("/therapist-onboarding");
         } else {
           toast({
             title: "¡Cuenta creada!",

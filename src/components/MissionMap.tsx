@@ -50,6 +50,9 @@ const MissionMap = ({ missions }: MissionMapProps) => {
   };
 
   const completedCount = missions.filter(m => m.status === 'completed').length;
+  
+  // Find the index of the first pending mission (next available)
+  const nextAvailableIndex = missions.findIndex(m => m.status === 'pending');
 
   return (
     <div className="relative w-full min-h-[700px] bg-gradient-to-b from-primary/5 via-secondary/5 to-accent/5 rounded-3xl p-6 sm:p-8 overflow-hidden shadow-lg border border-border/50">
@@ -84,7 +87,8 @@ const MissionMap = ({ missions }: MissionMapProps) => {
         {missions.map((mission, index) => {
           const position = getNodePosition(index);
           const isCompleted = mission.status === 'completed';
-          const isAvailable = mission.status === 'pending' && index <= completedCount;
+          // Only the next pending mission after completed ones is available
+          const isAvailable = mission.status === 'pending' && index === nextAvailableIndex;
           const isLocked = !isCompleted && !isAvailable;
 
           return (

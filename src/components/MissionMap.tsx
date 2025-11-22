@@ -28,24 +28,31 @@ const MissionMap = ({ missions }: MissionMapProps) => {
 
   // Posiciones estilo mapa de Chile (norte a sur, con curvas) - Camino fluido
   const getNodePosition = (index: number) => {
-    // Genera posiciones dinámicas basadas en el número total de misiones
     const totalMissions = missions.length;
+    
+    // Espaciado mínimo entre misiones (en unidades de viewport)
+    const minSpacing = 15; // Mínimo 15% de separación vertical
+    const totalHeight = 70; // Altura total disponible (del 15% al 85%)
+    
+    // Calcular espaciado dinámico según número de misiones
+    const idealSpacing = Math.max(minSpacing, totalHeight / Math.max(totalMissions - 1, 1));
+    
+    // Posición Y: distribución uniforme con espaciado garantizado
+    const startY = 15;
+    const y = startY + (index * idealSpacing);
+    
+    // Posición X: camino serpenteante suave
     const progress = index / Math.max(totalMissions - 1, 1);
+    const waveAmplitude = 20; // Amplitud del serpenteo
+    const waveFrequency = 1.8; // Frecuencia más suave para evitar solapamientos
+    const centerX = 50;
     
-    // Camino serpenteante de norte a sur con más separación
-    const minY = 12; // Margen superior
-    const maxY = 82; // Margen inferior
-    const baseY = minY + (progress * (maxY - minY)); // Distribución vertical amplia
+    // Añadir variación única por índice para evitar coincidencias exactas
+    const uniqueOffset = (index % 3) * 3; // Pequeña variación adicional
+    const offsetX = Math.sin(progress * Math.PI * waveFrequency + index * 0.2) * waveAmplitude + uniqueOffset;
+    const x = Math.max(20, Math.min(80, centerX + offsetX)); // Mantener dentro de límites
     
-    const waveAmplitude = 18; // Mayor amplitud horizontal
-    const waveFrequency = 2.5; // Frecuencia más suave
-    const centerX = 50; // Centro del camino
-    
-    // Calcula posición X con movimiento serpenteante suave
-    const offsetX = Math.sin(progress * Math.PI * waveFrequency) * waveAmplitude;
-    const x = centerX + offsetX;
-    
-    return { x, y: baseY };
+    return { x, y };
   };
   
   // Determinar región según índice

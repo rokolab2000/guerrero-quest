@@ -23,6 +23,19 @@ const Auth = () => {
     const checkUser = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
+        // Check user role
+        const { data: roles } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", session.user.id);
+
+        const isTherapist = roles?.some(r => r.role === "therapist");
+
+        if (isTherapist) {
+          navigate("/therapist");
+          return;
+        }
+
         // Check if user has completed onboarding
         const { data: profile } = await supabase
           .from("profiles")
@@ -54,6 +67,20 @@ const Auth = () => {
         if (error) throw error;
 
         if (data.session) {
+          // Check user role
+          const { data: roles } = await supabase
+            .from("user_roles")
+            .select("role")
+            .eq("user_id", data.session.user.id);
+
+          const isUserTherapist = roles?.some(r => r.role === "therapist");
+
+          if (isUserTherapist) {
+            navigate("/therapist");
+            return;
+          }
+
+          // Check if patient has completed onboarding
           const { data: profile } = await supabase
             .from("profiles")
             .select("animal_warrior")
@@ -84,12 +111,39 @@ const Auth = () => {
 
         if (error) throw error;
 
-        toast({
-          title: "¡Cuenta creada!",
-          description: "Ahora completa tu perfil de guerrero",
-        });
+        // If signing up as therapist, update the role
+        if (isTherapist && data.user) {
+          // First delete the default patient role
+          await supabase
+            .from("user_roles")
+            .delete()
+            .eq("user_id", data.user.id)
+            .eq("role", "patient");
 
-        navigate("/onboarding");
+          // Add therapist role
+          const { error: roleError } = await supabase
+            .from("user_roles")
+            .insert({
+              user_id: data.user.id,
+              role: "therapist",
+            });
+
+          if (roleError) throw roleError;
+
+          toast({
+            title: "¡Cuenta de terapeuta creada!",
+            description: "Iniciando sesión...",
+          });
+
+          navigate("/therapist");
+        } else {
+          toast({
+            title: "¡Cuenta creada!",
+            description: "Ahora completa tu perfil de guerrero",
+          });
+
+          navigate("/onboarding");
+        }
       }
     } catch (error: any) {
       toast({

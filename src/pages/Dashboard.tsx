@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Sparkles, Trophy, Target, LogOut } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
+import MissionMap from "@/components/MissionMap";
 
 type Mission = Database["public"]["Tables"]["missions"]["Row"];
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
@@ -234,46 +235,7 @@ const Dashboard = () => {
             </Button>
           </div>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2">
-            {missions.map((mission) => (
-              <div
-                key={mission.id}
-                className="rounded-2xl border-2 border-border bg-card p-6 transition-all hover:border-primary hover:shadow-lg"
-              >
-                <div className="mb-4 flex items-start justify-between">
-                  <h3 className="text-xl font-bold">{mission.title}</h3>
-                  <span
-                    className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                      mission.status === "completed"
-                        ? "bg-success/10 text-success"
-                        : mission.status === "in_progress"
-                        ? "bg-secondary/10 text-secondary"
-                        : "bg-muted text-muted-foreground"
-                    }`}
-                  >
-                    {mission.status === "completed"
-                      ? "Completada"
-                      : mission.status === "in_progress"
-                      ? "En Progreso"
-                      : "Pendiente"}
-                  </span>
-                </div>
-
-                <p className="mb-4 text-muted-foreground">{mission.description}</p>
-
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1 text-primary">
-                    <Sparkles className="h-4 w-4" />
-                    <span className="font-semibold">{mission.gems_reward} gemas</span>
-                  </div>
-
-                  {mission.status === "pending" && (
-                    <Button onClick={() => startMission(mission.id)}>Comenzar</Button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
+          <MissionMap missions={missions} />
         )}
       </div>
     </div>

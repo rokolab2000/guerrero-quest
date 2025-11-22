@@ -20,14 +20,16 @@ const MissionMap = ({ missions }: MissionMapProps) => {
   // Calculate positions for mission nodes in a winding path
   const getNodePosition = (index: number) => {
     const positions = [
-      { x: 50, y: 10 },
-      { x: 30, y: 25 },
-      { x: 70, y: 40 },
-      { x: 40, y: 55 },
-      { x: 60, y: 70 },
-      { x: 35, y: 85 },
+      { x: 50, y: 8 },
+      { x: 25, y: 20 },
+      { x: 70, y: 32 },
+      { x: 35, y: 44 },
+      { x: 65, y: 56 },
+      { x: 30, y: 68 },
+      { x: 60, y: 80 },
+      { x: 45, y: 92 },
     ];
-    return positions[index % positions.length] || { x: 50, y: 90 };
+    return positions[index % positions.length] || { x: 50, y: 92 };
   };
 
   // Draw SVG path connecting all nodes
@@ -50,7 +52,7 @@ const MissionMap = ({ missions }: MissionMapProps) => {
   const completedCount = missions.filter(m => m.status === 'completed').length;
 
   return (
-    <div className="relative w-full min-h-[600px] bg-gradient-to-b from-primary/5 via-secondary/5 to-accent/5 rounded-3xl p-8 overflow-hidden">
+    <div className="relative w-full min-h-[700px] bg-gradient-to-b from-primary/5 via-secondary/5 to-accent/5 rounded-3xl p-6 sm:p-8 overflow-hidden shadow-lg border border-border/50">
       {/* Decorative background elements */}
       <div className="absolute inset-0 opacity-10">
         <div className="absolute top-10 left-10 w-32 h-32 bg-primary rounded-full blur-3xl" />
@@ -66,13 +68,14 @@ const MissionMap = ({ missions }: MissionMapProps) => {
       >
         <motion.path
           d={generatePath()}
-          stroke="hsl(var(--border))"
-          strokeWidth="0.5"
+          stroke="hsl(var(--primary))"
+          strokeWidth="0.3"
           fill="none"
-          strokeDasharray="2,2"
+          strokeDasharray="4,4"
+          opacity="0.4"
           initial={{ pathLength: 0 }}
           animate={{ pathLength: 1 }}
-          transition={{ duration: 2, ease: "easeInOut" }}
+          transition={{ duration: 2.5, ease: "easeInOut" }}
         />
       </svg>
 
@@ -98,17 +101,17 @@ const MissionMap = ({ missions }: MissionMapProps) => {
               transition={{ delay: index * 0.1, type: "spring" }}
             >
               <motion.button
-                onClick={() => isAvailable && navigate(`/exercise?mission=${mission.id}`)}
+                onClick={() => isAvailable && navigate(`/exercise/${mission.id}`)}
                 disabled={isLocked}
                 className={`
                   relative w-20 h-20 rounded-full flex items-center justify-center
-                  transition-all duration-300 shadow-lg
-                  ${isCompleted && 'bg-gradient-to-br from-success to-success/80 cursor-default'}
-                  ${isAvailable && 'bg-gradient-to-br from-primary to-primary-glow cursor-pointer hover:scale-110'}
-                  ${isLocked && 'bg-muted cursor-not-allowed'}
+                  transition-all duration-300 shadow-xl
+                  ${isCompleted && 'bg-gradient-to-br from-success to-success/80 cursor-default border-2 border-success/50'}
+                  ${isAvailable && 'bg-gradient-to-br from-primary to-primary/80 cursor-pointer hover:shadow-2xl border-2 border-primary/50'}
+                  ${isLocked && 'bg-muted/50 cursor-not-allowed border-2 border-muted'}
                 `}
-                whileHover={isAvailable ? { scale: 1.1, rotate: 5 } : {}}
-                whileTap={isAvailable ? { scale: 0.95 } : {}}
+                whileHover={isAvailable ? { scale: 1.15, rotate: 5 } : {}}
+                whileTap={isAvailable ? { scale: 0.9 } : {}}
               >
                 {/* Icon */}
                 {isCompleted && (

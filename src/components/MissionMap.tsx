@@ -68,12 +68,6 @@ const MissionMap = ({ missions }: MissionMapProps) => {
     const regionIndex = Math.floor((index / missions.length) * WORLD_REGIONS.length);
     return WORLD_REGIONS[Math.min(regionIndex, WORLD_REGIONS.length - 1)];
   };
-  
-  // Determinar región según índice
-  const getRegion = (index: number) => {
-    const regionIndex = Math.floor((index / missions.length) * WORLD_REGIONS.length);
-    return WORLD_REGIONS[Math.min(regionIndex, WORLD_REGIONS.length - 1)];
-  };
 
   // Generar SVG path con curvas Bezier suaves para apariencia de carretera
   const generatePath = () => {

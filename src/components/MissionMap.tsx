@@ -26,21 +26,23 @@ const WORLD_REGIONS = [
 const MissionMap = ({ missions }: MissionMapProps) => {
   const navigate = useNavigate();
 
-  // Posiciones estilo mapa de Chile (norte a sur, con curvas)
+  // Posiciones estilo mapa de Chile (norte a sur, con curvas) - Camino fluido
   const getNodePosition = (index: number) => {
-    const positions = [
-      { x: 50, y: 12 },  // Norte - Desierto
-      { x: 42, y: 22 },
-      { x: 48, y: 32 },  // Centro - Bosques
-      { x: 55, y: 42 },
-      { x: 46, y: 52 },  // Centro-Sur
-      { x: 40, y: 62 },  // Sur - Fiordos
-      { x: 48, y: 72 },
-      { x: 43, y: 82 },  // Patagonia
-      { x: 38, y: 90 },
-      { x: 70, y: 88 },  // Isla Mística
-    ];
-    return positions[index % positions.length] || { x: 50, y: 50 };
+    // Genera posiciones dinámicas basadas en el número total de misiones
+    const totalMissions = missions.length;
+    const progress = index / Math.max(totalMissions - 1, 1);
+    
+    // Camino serpenteante de norte a sur
+    const baseY = 15 + (progress * 70); // De 15% a 85% verticalmente
+    const waveAmplitude = 12; // Amplitud de la onda horizontal
+    const waveFrequency = 3; // Frecuencia de la serpiente
+    const centerX = 45; // Centro del camino
+    
+    // Calcula posición X con movimiento serpenteante
+    const offsetX = Math.sin(progress * Math.PI * waveFrequency) * waveAmplitude;
+    const x = centerX + offsetX;
+    
+    return { x, y: baseY };
   };
   
   // Determinar región según índice
@@ -139,41 +141,69 @@ const MissionMap = ({ missions }: MissionMapProps) => {
         viewBox="0 0 100 100"
         preserveAspectRatio="none"
       >
-        {/* Sombra del camino */}
+        <defs>
+          {/* Gradiente para el camino completado */}
+          <linearGradient id="pathGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="hsl(var(--success))" stopOpacity="0.8" />
+            <stop offset={`${(completedCount / missions.length) * 100}%`} stopColor="hsl(var(--success))" stopOpacity="0.8" />
+            <stop offset={`${(completedCount / missions.length) * 100}%`} stopColor="hsl(var(--primary))" stopOpacity="0.6" />
+            <stop offset="100%" stopColor="hsl(var(--muted))" stopOpacity="0.3" />
+          </linearGradient>
+        </defs>
+        
+        {/* Sombra del camino - más gruesa */}
         <motion.path
           d={generatePath()}
           stroke="hsl(var(--foreground))"
-          strokeWidth="4"
+          strokeWidth="6"
           fill="none"
-          opacity="0.2"
+          opacity="0.15"
+          strokeLinecap="round"
+          strokeLinejoin="round"
           initial={{ pathLength: 0 }}
           animate={{ pathLength: 1 }}
-          transition={{ duration: 2, ease: "easeInOut" }}
+          transition={{ duration: 2.5, ease: "easeInOut" }}
         />
-        {/* Camino principal - estilo tierra */}
+        
+        {/* Camino base - ancho */}
         <motion.path
           d={generatePath()}
-          stroke="hsl(var(--primary))"
-          strokeWidth="3"
+          stroke="hsl(var(--muted))"
+          strokeWidth="5"
           fill="none"
           strokeLinecap="round"
           strokeLinejoin="round"
-          opacity="0.6"
+          opacity="0.4"
           initial={{ pathLength: 0 }}
           animate={{ pathLength: 1 }}
-          transition={{ duration: 2, ease: "easeInOut" }}
+          transition={{ duration: 2.5, ease: "easeInOut" }}
         />
-        {/* Línea punteada central */}
+        
+        {/* Camino principal - con gradiente de progreso */}
         <motion.path
           d={generatePath()}
-          stroke="hsl(var(--accent))"
-          strokeWidth="1"
+          stroke="url(#pathGradient)"
+          strokeWidth="4"
           fill="none"
-          strokeDasharray="6,8"
-          opacity="0.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
           initial={{ pathLength: 0 }}
           animate={{ pathLength: 1 }}
-          transition={{ duration: 2, ease: "easeInOut", delay: 0.3 }}
+          transition={{ duration: 2.5, ease: "easeInOut" }}
+        />
+        
+        {/* Línea punteada central - guía */}
+        <motion.path
+          d={generatePath()}
+          stroke="hsl(var(--background))"
+          strokeWidth="1.5"
+          fill="none"
+          strokeDasharray="8,12"
+          opacity="0.6"
+          strokeLinecap="round"
+          initial={{ pathLength: 0 }}
+          animate={{ pathLength: 1 }}
+          transition={{ duration: 2.5, ease: "easeInOut", delay: 0.5 }}
         />
       </svg>
 
@@ -215,28 +245,36 @@ const MissionMap = ({ missions }: MissionMapProps) => {
                 {/* Base del nodo - Estandarte/Tótem estilo pixel */}
                 <div className={`
                   relative w-20 h-28 flex flex-col items-center justify-center
-                  transition-all duration-300
-                  ${isCompleted && 'opacity-80'}
+                  transition-all duration-500
+                  ${isCompleted && 'opacity-90'}
+                  ${isLocked && 'opacity-50'}
                 `}>
                   
                   {/* Poste del estandarte */}
                   <div className={`
-                    absolute bottom-0 w-2 h-24 rounded-sm
-                    ${isCompleted && 'bg-success/60'}
-                    ${isAvailable && 'bg-primary'}
-                    ${isLocked && 'bg-muted/40'}
-                  `} />
+                    absolute bottom-0 w-3 h-24 rounded-sm transition-all duration-500
+                    ${isCompleted && 'bg-gradient-to-b from-success to-success/60 shadow-lg shadow-success/50'}
+                    ${isAvailable && 'bg-gradient-to-b from-primary to-primary/80 shadow-lg shadow-primary/50'}
+                    ${isLocked && 'bg-gradient-to-b from-muted/40 to-muted/20'}
+                  `} style={{
+                    boxShadow: isAvailable ? '0 0 20px rgba(var(--primary), 0.5)' : 'none'
+                  }} />
                   
                   {/* Bandera/Icono principal */}
                   <div className={`
                     relative w-16 h-16 rounded-lg flex items-center justify-center
-                    border-4 shadow-2xl z-10
-                    ${isCompleted && 'bg-gradient-to-br from-success/90 to-success border-success/50'}
-                    ${isAvailable && `bg-gradient-to-br ${region.color} border-white/60 animate-pulse`}
-                    ${isLocked && 'bg-gradient-to-br from-muted/50 to-muted/30 border-muted/40'}
+                    border-4 shadow-2xl z-10 transition-all duration-500
+                    ${isCompleted && 'bg-gradient-to-br from-success/90 to-success border-success/50 scale-100'}
+                    ${isAvailable && `bg-gradient-to-br ${region.color} border-white/70 animate-pulse scale-110`}
+                    ${isLocked && 'bg-gradient-to-br from-muted/60 to-muted/40 border-muted/50 grayscale'}
                   `}
                   style={{
-                    boxShadow: isAvailable ? '0 0 30px rgba(255,255,255,0.4)' : 'none'
+                    boxShadow: isAvailable 
+                      ? '0 0 40px rgba(255,255,255,0.6), 0 0 60px rgba(var(--primary), 0.4)' 
+                      : isCompleted
+                      ? '0 4px 12px rgba(var(--success), 0.3)'
+                      : 'none',
+                    filter: isLocked ? 'grayscale(80%) brightness(0.7)' : 'none'
                   }}>
                     
                     {/* Icono */}
@@ -252,20 +290,35 @@ const MissionMap = ({ missions }: MissionMapProps) => {
                       )}
                     </div>
 
-                    {/* Brillo animado para misión disponible */}
+                    {/* Anillos de brillo animados para misión disponible */}
                     {isAvailable && (
-                      <motion.div
-                        className="absolute inset-0 rounded-lg border-4 border-white"
-                        animate={{ 
-                          scale: [1, 1.3, 1],
-                          opacity: [0.8, 0, 0.8]
-                        }}
-                        transition={{ 
-                          duration: 2,
-                          repeat: Infinity,
-                          ease: "easeInOut"
-                        }}
-                      />
+                      <>
+                        <motion.div
+                          className="absolute inset-0 rounded-lg border-4 border-white"
+                          animate={{ 
+                            scale: [1, 1.4, 1],
+                            opacity: [0.9, 0, 0.9]
+                          }}
+                          transition={{ 
+                            duration: 2,
+                            repeat: Infinity,
+                            ease: "easeInOut"
+                          }}
+                        />
+                        <motion.div
+                          className="absolute inset-0 rounded-lg border-2 border-accent"
+                          animate={{ 
+                            scale: [1, 1.6, 1],
+                            opacity: [0.7, 0, 0.7]
+                          }}
+                          transition={{ 
+                            duration: 2,
+                            repeat: Infinity,
+                            ease: "easeInOut",
+                            delay: 0.3
+                          }}
+                        />
+                      </>
                     )}
 
                     {/* Estrella flotante */}
